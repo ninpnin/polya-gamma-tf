@@ -23,7 +23,26 @@ import tensorflow_probability as tfp
  * [1] for its derivation).
 """
 
-# mu <= t
+
+# Algorithm 2: mu > t
+def truncated_ig_mularge(mu, t):
+    z = 1.0 / mu
+    
+    E = tf.random.exponential(shape=[1])
+    E_prime = tf.random.exponential(shape=[1])
+    while E * E > 2 * E_prime / t:
+        E = tf.random.exponential(shape=[1])
+        E_prime = tf.random.exponential(shape=[1])
+
+    X = t / ((1 + t * E) ** 2)
+    alpha = tf.exp(- 0.5 * (z ** 2) * X)
+    U = tf.random.uniform(shape=[1])
+    if U <= alpha:
+        return X
+    else:
+        return truncated_ig_mularge(mu, t)
+
+# Algorithm 3: mu <= t
 def truncated_ig_musmall(mu, t):
     sqrt_Y = tf.random.normal(0, 1)
     Y = sqrt_Y * sqrt_Y
@@ -31,20 +50,6 @@ def truncated_ig_musmall(mu, t):
 
     U = tf.random.uniform(shape=[1])
     pass
-
-# mu > t
-def truncated_ig_mularge(mu, t):
-    z = 1.0 / mu
-    
-    E = tf.random.exponential(shape=[1])
-    E_prime = tf.random.exponential(shape=[1])
-    while E * E > 2 * E_prime / t:
-
-    U = tf.random.uniform(shape=[1])
-    if U <= alpha:
-        return X
-    else:
-        return truncated_ig_mularge(mu, t)
 
 
 def truncated_inverse_gaussian(mu, t):
