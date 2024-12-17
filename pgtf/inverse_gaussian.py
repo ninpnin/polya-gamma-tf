@@ -5,6 +5,7 @@ import tensorflow as tf
 import numpy as np
 from trainerlog import get_logger
 import tensorflow_probability as tfp
+import sys
 
 """
  * When 1/z < 0.64, We use a known sampling algorithm from Devroye
@@ -23,25 +24,47 @@ import tensorflow_probability as tfp
  * [1] for its derivation).
 """
 
+@tf.function
+def rand_unif():
+    return tf.random.uniform(shape=(), dtype=tf.float32)
+
+@tf.function
+def rand_exp():
+    return - tf.math.log(1.0 - rand_unif())
 
 # Algorithm 2: mu > t
+@tf.function
 def truncated_ig_mularge(mu, t):
     z = 1.0 / mu
-    
-    E = tf.random.exponential(shape=[1])
-    E_prime = tf.random.exponential(shape=[1])
-    while E * E > 2 * E_prime / t:
-        E = tf.random.exponential(shape=[1])
-        E_prime = tf.random.exponential(shape=[1])
+    alpha = tf.constant(0.0)
+    U = tf.constant(1.0)
+
+    # While loops are terribly slow in TF;
+    # We gotta make everything batched
+    while U > alpha:
+        E = rand_exp()
+        E_prime = rand_exp()
+        while E * E > 2 * E_prime / t:
+            E = rand_exp()
+            E_prime = rand_exp()
+
+        X = t / ((1 + t * E) ** 2)
+        alpha = tf.exp(- 0.5 * (z ** 2) * X)
+        U = rand_unif()
+    return X
+
+def truncated_ig_mularge_batch(mus, t):
+    N = len(mus)
+    z = 1.0 / mus
+
+    E = - tf.math.log(1.0 - tf.random.uniform(shape=[N], dtype=tf.float32))
+    E_prime = - tf.math.log(1.0 - tf.random.uniform(shape=[N], dtype=tf.float32))
 
     X = t / ((1 + t * E) ** 2)
-    alpha = tf.exp(- 0.5 * (z ** 2) * X)
-    U = tf.random.uniform(shape=[1])
-    if U <= alpha:
-        return X
-    else:
-        return truncated_ig_mularge(mu, t)
-
+    alphas = tf.exp(- 0.5 * (z ** 2) * X)
+    U = tf.random.uniform(shape=(), dtype=tf.float32)
+    return X, E * E > 2 * E_prime / t, U <= alphas
+    
 # Algorithm 3: mu <= t
 def truncated_ig_musmall(mu, t):
     sqrt_Y = tf.random.normal(0, 1)
@@ -56,4 +79,4 @@ def truncated_inverse_gaussian(mu, t):
     if mu > t:
         return truncated_ig_mularge(mu, t)
     else:
-        return truncated_ig_musmall(mu, t):
+        return truncated_ig_musmall(mu, t)
