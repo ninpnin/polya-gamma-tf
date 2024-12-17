@@ -1,3 +1,6 @@
+"""
+Algorithms 2 and 3 from Polson et al. (2013)
+"""
 import tensorflow as tf
 import numpy as np
 from trainerlog import get_logger
@@ -18,7 +21,6 @@ import tensorflow_probability as tfp
  * sample only if we sample a standard uniform value less than the acceptance
  * probability. The probability is exp(-0.5 * z2 * x) (Refer to Appendix 1 of
  * [1] for its derivation).
-
 """
 
 # mu <= t
