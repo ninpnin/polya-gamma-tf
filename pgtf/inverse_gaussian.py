@@ -53,6 +53,7 @@ def truncated_ig_mularge(mu, t):
         U = rand_unif()
     return X
 
+@tf.function
 def truncated_ig_mularge_batch(mus, t):
     N = len(mus)
     z = 1.0 / mus
@@ -63,8 +64,45 @@ def truncated_ig_mularge_batch(mus, t):
     X = t / ((1 + t * E) ** 2)
     alphas = tf.exp(- 0.5 * (z ** 2) * X)
     U = tf.random.uniform(shape=(), dtype=tf.float32)
-    return X, E * E > 2 * E_prime / t, U <= alphas
-    
+
+    valid = tf.cast(tf.math.logical_and(E * E > 2 * E_prime / t, U <= alphas), tf.float32)
+
+    # If X fulfills both conditions, return X, otherwise return -1.0
+    X_valid = X * valid - (1.0 - valid)
+    return X_valid
+
+@tf.function
+def truncated_ig_mularge_batch_recursive(mus, t):
+    X = truncated_ig_mularge_batch(mus, t)
+    X_prime = None
+    indices = None
+
+    most_done = False
+    for _ in range(50):
+        if not most_done:
+            if X_prime is None:
+                indices = tf.where(X < 0.0)
+            else:
+                #print(indices.shape)
+                indices_prime = tf.where(X_prime < 0.0)
+                #print(indices_prime)
+                #exit()
+                indices = tf.gather(indices[:, 0], indices_prime)
+                #print(indices)
+
+                most_done = tf.math.count_nonzero(indices_prime) <= 100
+                #exit()
+            #print("Indices shape", indices.shape)
+            #print("Indices ", indices[:, :3])
+            mu_prime = tf.gather(mus, indices)[:, 0]
+            #print(mu_prime.shape)
+            X_prime = truncated_ig_mularge_batch(mu_prime, t)
+            #print(X_prime.shape)
+            #X[indices] = X_prime
+            X = tf.tensor_scatter_nd_update(X, indices, X_prime)
+            #print("Unsuccesful", tf.math.count_nonzero(tf.where(X_prime < 0.0)), "out of", len(X_prime))
+    return X
+
 # Algorithm 3: mu <= t
 def truncated_ig_musmall(mu, t):
     sqrt_Y = tf.random.normal(0, 1)

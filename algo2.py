@@ -18,6 +18,13 @@ mus = tf.random.uniform(shape=[1000000], dtype=tf.float32) * 0.3 + t
 LOGGER.info("Batched")
 batched = truncated_ig_mularge_batch(mus, t)
 LOGGER.info("end")
+LOGGER.info("Batched")
+batched = truncated_ig_mularge_batch_recursive(mus, t)
+LOGGER.info("end")
+LOGGER.info("Batched")
+X_prime = truncated_ig_mularge_batch_recursive(mus, t)
+LOGGER.info("end")
+LOGGER.info(f"Unsuccesful {tf.math.count_nonzero(tf.where(X_prime < 0.0))} out of {len(X_prime)}")
 
 ref_dist = tfp.distributions.InverseGaussian(mu, 1.0)
 for _ in progressbar.progressbar(range(R)):
